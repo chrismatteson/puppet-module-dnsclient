@@ -1,7 +1,7 @@
 language: ruby
 before_script: "gem install --no-ri --no-rdoc bundler"
 after_script:
-script: "rake spec"
+script: 'SPEC_OPTS="--format documentation" bundle exec rake spec'
 notifications:
   email: false
 rvm:
