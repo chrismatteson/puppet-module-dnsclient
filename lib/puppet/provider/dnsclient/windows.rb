@@ -8,7 +8,6 @@
 #  def create(nameservers,purge)
 #    buildhash (nameservers,purge)
 #    nameservershash = buildhash.return
-#    checkexisting nameservershash
 #    updatehash = checkexisting.return
 #    updatedns updatehash
 #  end
@@ -20,8 +19,7 @@
 #
 #  def exists?(nameservers,purge)
 #    buildhash (nameservers,purge)
-#    checkexisting nameservershash
-#    if not checkexisting.return == 0
+#    if not buildhash.return == 0
 #      return 1
 #    else
 #      return 0
@@ -35,7 +33,8 @@
       interfaces = interfaces.split(",").map { |a| a }
       interfaces.each do |interface|
         currentdns = `powershell.exe "Get-DNSClientServerAddress -InterfaceAlias '#{interface}' | select -expand ServerAddresses"`
-        currentdns = currentdns.chomp
+        currentdns = currentdns.split("\n").join(",")
+        puts currentdns
         nameservershash[:"#{interface}"] = "#{currentdns}"
       end
     end
@@ -60,6 +59,7 @@
       puts updatehash
     end
     if updatehash.empty?
+      puts 'They match!'
       return 0
     end
     puts "#{nameservershash}"
@@ -73,4 +73,4 @@
     end
   end
 
-  buildhash (servers, purge)
+  buildhash (servers)
