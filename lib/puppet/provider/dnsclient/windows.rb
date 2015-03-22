@@ -1,9 +1,9 @@
 # Windows provider for dnsclient
 # Puppet::Type.type(:dnsclient).provide(:windows) do
 
-  servers = ["4.2.2.2"]
+  servers = ["4.2.2.2", "8.8.8.8"]
   nameservershash = {}
-  purge = "false"
+  purge = true
 
 #  def create(nameservers,purge)
 #    buildhash (nameservers,purge)
@@ -39,54 +39,32 @@
         nameservershash[:"#{interface}"] = "#{currentdns}"
       end
     end
-    updatehash = nameservershash
+    updatehash = {}
     puts nameservershash
-    puts updatehash
     nameservers.each do |nameserver|
       interface = `powershell.exe "Find-NetRoute -RemoteIPAddress #{nameserver} | select -expand InterfaceAlias | Get-Unique"`
       interface = interface.chomp
-      puts nameservershash[:"#{interface}"]
       nameserversarray = (nameservershash[:"#{interface}"]).split(",").map { |a| a }
-      puts nameserversarray
-      puts nameserver
       if not nameserversarray.include? nameserver	
-        if nameservershash.has_key?(:"#{interface}")
-          nameservershash[:"#{interface}"] << ", #{nameserver}"
+        if updatehash.has_key?(:"#{interface}")
+          updatehash[:"#{interface}"] << ", #{nameserver}"
         else
-          nameservershash[:"#{interface}"] = "#{nameserver}"
+          if nameservershash.has_key?(:"#{interface}")
+            updatehash[:"#{interface}"] = nameservershash[:"#{interface}"]
+            updatehash[:"#{interface}"] << ", #{nameserver}"
+          else
+            updatehash[:"#{interface}"] = "#{nameserver}"
+          end
         end
       end
-      puts nameservershash
-    end
-    if updatehash.eql? nameservershash
-      puts 'They match!'
-      puts nameservershash
       puts updatehash
+    end
+    if updatehash.empty?
       return 0
     end
     puts "#{nameservershash}"
-#    checkexisting nameservershash
     updatedns updatehash
   end
-
-#  def checkexisting(nameservershash)
-#    updatehash = {}
-#    nameservershash.each do |key, value|
-#      currentdns = `powershell.exe "Get-DNSClientServerAddress -InterfaceAlias '#{key}' | select -expand ServerAddresses"`
-#      currentdns = currentdns.chomp
-#      puts currentdns.inspect
-#      puts value
-#      if not value.eql? currentdns
-#        updatehash[:"#{key}"] = "#{value}"
-#        puts updatehash
-#      end
-#    end
-#    if updatehash.empty?
-#      return 0
-#    end
-#    puts updatehash
-#    updatedns updatehash
-#  end
 
   def updatedns(updatehash)
     updatehash.each do |key, value|
@@ -95,4 +73,4 @@
     end
   end
 
-  buildhash (servers)
+  buildhash (servers, purge)
