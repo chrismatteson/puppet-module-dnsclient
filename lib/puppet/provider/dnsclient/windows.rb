@@ -1,7 +1,7 @@
 # Windows provider for dnsclient
 # Puppet::Type.type(:dnsclient).provide(:windows) do
 
-  servers = ["4.2.2.2", "8.8.8.8"]
+  servers = ["4.2.2.3", "8.8.4.4"]
   nameservershash = {}
   purge = true
 
@@ -25,44 +25,46 @@
 #      return 0
 #  end
 
-  def buildhash(nameservers, purge=false)
+  def buildhash(nameservers)
     nameservershash = {}
-    if purge == false
-      interfaces = `powershell.exe "(Get-DNSClientServerAddress | select -expand InterfaceAlias | Get-Unique) -join ','"`
-      interfaces = interfaces.chomp
-      interfaces = interfaces.split(",").map { |a| a }
-      interfaces.each do |interface|
-        currentdns = `powershell.exe "Get-DNSClientServerAddress -InterfaceAlias '#{interface}' | select -expand ServerAddresses"`
-        currentdns = currentdns.split("\n").join(",")
-        puts currentdns
-        nameservershash[:"#{interface}"] = "#{currentdns}"
-      end
+    puts nameservers
+    interfaces = `powershell.exe "(Get-DNSClientServerAddress | select -expand InterfaceAlias | Get-Unique) -join ','"`
+    interfaces = interfaces.chomp
+    interfaces = interfaces.split(",").map { |a| a }
+    interfaces.each do |interface|
+      currentdns = `powershell.exe "Get-DNSClientServerAddress -InterfaceAlias '#{interface}' | select -expand ServerAddresses"`
+      currentdns = currentdns.split("\n").join(",")
+      nameservershash[:"#{interface}"] = "#{currentdns}"
     end
-    updatehash = {}
     puts nameservershash
+#    return nameservershash
+    checkexisting(nameservers, nameservershash)
+  end
+
+  def checkexisting(nameservers, nameservershash)
+    updatehash = {}
     nameservers.each do |nameserver|
       interface = `powershell.exe "Find-NetRoute -RemoteIPAddress #{nameserver} | select -expand InterfaceAlias | Get-Unique"`
       interface = interface.chomp
       nameserversarray = (nameservershash[:"#{interface}"]).split(",").map { |a| a }
       if not nameserversarray.include? nameserver	
         if updatehash.has_key?(:"#{interface}")
-          updatehash[:"#{interface}"] << ", #{nameserver}"
+          updatehash[:"#{interface}"] << ",#{nameserver}"
         else
           if nameservershash.has_key?(:"#{interface}")
             updatehash[:"#{interface}"] = nameservershash[:"#{interface}"]
-            updatehash[:"#{interface}"] << ", #{nameserver}"
+            updatehash[:"#{interface}"] << ",#{nameserver}"
           else
             updatehash[:"#{interface}"] = "#{nameserver}"
           end
         end
       end
-      puts updatehash
     end
     if updatehash.empty?
       puts 'They match!'
       return 0
     end
-    puts "#{nameservershash}"
+#    return updatehash
     updatedns updatehash
   end
 
@@ -73,4 +75,4 @@
     end
   end
 
-  buildhash (servers)
+  buildhash servers
