@@ -1,21 +1,27 @@
 # Windows provider for dnsclient
 # Puppet::Type.type(:dnsclient).provide(:windows) do
 
-  servers = ["4.2.2.3", "8.8.4.4"]
+  servers = ["4.2.2.3", "8.8.8.8"]
   nameservershash = {}
-  purge = true
+  purge = false
 
-#  def create(nameservers,purge)
-#    buildhash (nameservers,purge)
-#    nameservershash = buildhash.return
-#    updatehash = checkexisting.return
-#    updatedns updatehash
-#  end
-#
-#  def destroy(nameservers)
-#    purge = false
-#    buildhash nameservers purge
-#  end
+  def create(nameservers, purge)
+    nameservershash = buildhash nameservers
+    updatehash = addservers(nameservers, nameservershash, purge)
+    puts updatehash
+    if updatehash.empty?
+      puts 'return 0'
+      return 0
+    else
+      updatedns updatehash
+    end
+  end
+
+  def destroy(nameservers)
+    nameservershash = buildhash nameservers
+    updatehash = removeservers(nameservers, nameservershash)
+    updatedns updatehash
+  end
 #
 #  def exists?(nameservers,purge)
 #    buildhash (nameservers,purge)
@@ -37,11 +43,10 @@
       nameservershash[:"#{interface}"] = "#{currentdns}"
     end
     puts nameservershash
-#    return nameservershash
-    checkexisting(nameservers, nameservershash)
+    nameservershash
   end
 
-  def checkexisting(nameservers, nameservershash)
+  def addservers(nameservers, nameservershash, purge=false)
     updatehash = {}
     nameservers.each do |nameserver|
       interface = `powershell.exe "Find-NetRoute -RemoteIPAddress #{nameserver} | select -expand InterfaceAlias | Get-Unique"`
@@ -51,7 +56,7 @@
         if updatehash.has_key?(:"#{interface}")
           updatehash[:"#{interface}"] << ",#{nameserver}"
         else
-          if nameservershash.has_key?(:"#{interface}")
+          if purge == false && nameservershash.has_key?(:"#{interface}")
             updatehash[:"#{interface}"] = nameservershash[:"#{interface}"]
             updatehash[:"#{interface}"] << ",#{nameserver}"
           else
@@ -60,12 +65,27 @@
         end
       end
     end
-    if updatehash.empty?
-      puts 'They match!'
-      return 0
+    updatehash
+  end
+
+  def removeservers(nameservers, nameservershash)
+    updatehash = {}
+    nameservers.each do |nameserver|
+      interface = `powershell.exe "Find-NetRoute -RemoteIPAddress #{nameserver} | select -expand InterfaceAlias | Get-Unique"`
+      interface = interface.chomp
+      nameserversarray = (nameservershash[:"#{interface}"]).split(",").map { |a| a }
+      if nameserversarray.include? nameserver
+        if updatehash.has_key?(:"#{interface}")
+          updateserversarray = (updatehash[:"#{interface}"]).delete("#{nameserver}")
+          updatehash[:"#{interface}"] = updateserversarray
+         else
+          updateserversarray = (nameservershash[:"#{interface}"]).delete("#{nameserver}")
+          updatehash[:"#{interface}"] = updateserversarray
+        end
+      end
     end
-#    return updatehash
-    updatedns updatehash
+    puts updatehash
+    updatehash
   end
 
   def updatedns(updatehash)
@@ -75,4 +95,5 @@
     end
   end
 
-  buildhash servers
+#  create(servers, purge)
+  destroy(servers)
