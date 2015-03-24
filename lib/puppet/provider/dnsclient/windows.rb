@@ -8,9 +8,7 @@
   def create(nameservers, purge)
     nameservershash = buildhash
     updatehash = addservers(nameservers, nameservershash, purge)
-    puts updatehash
     if updatehash.empty?
-      puts 'return 0'
       return 0
     else
       updatedns updatehash
@@ -21,20 +19,26 @@
     nameservershash = buildhash
     updatehash = removeservers(nameservers, nameservershash)
     if updatehash.eql? 0
-      puts 'return 0'
+      return 0
     else
-      puts updatehash
       updatedns updatehash
     end
   end
 
-#  def exists?(nameservers, purge)
-#    nameservershash = buildhash
-#    if not buildhash.return == 0
-#      return 1
-#    else
-#      return 0
-#  end
+  def exists?(nameservers)
+    nameservershash = buildhash
+    nameservers.each do |nameserver|
+      interface = `powershell.exe "Find-NetRoute -RemoteIPAddress #{nameserver} | select -expand InterfaceAlias | Get-Unique"`
+      interface = interface.chomp
+      nameserversarray = (nameservershash[:"#{interface}"]).split(",").map { |a| a }
+      if not nameserversarray.include? nameserver
+        puts 'false'
+        return 'false'
+      end
+    end
+    puts 'true'
+    return 'true'
+  end
 
   def buildhash
     nameservershash = {}
@@ -46,7 +50,6 @@
       currentdns = currentdns.split("\n").join(",")
       nameservershash[:"#{interface}"] = "#{currentdns}"
     end
-    puts nameservershash
     nameservershash
   end
 
@@ -120,11 +123,12 @@
       if value.empty?
         `powershell.exe "Set-DNSClientServerAddress -InterfaceAlias #{key} -ResetServerAddresses"`
       else
-        value = "#{value.join(',')}"
+#        value = "#{value.join(',')}"
         `powershell.exe Set-DNSClientServerAddress -InterfaceAlias #{key} -ServerAddresses #{value}`
       end
     end
   end
 
 #  create(servers, purge)
-  destroy(servers)
+#  destroy(servers)
+  exists?(servers)
