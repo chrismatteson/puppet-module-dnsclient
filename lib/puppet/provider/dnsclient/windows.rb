@@ -1,7 +1,7 @@
 # Windows provider for dnsclient
 # Puppet::Type.type(:dnsclient).provide(:windows) do
 
-  servers = ["4.2.2.3", "8.8.8.8"]
+  servers = ["4.2.2.2", "8.8.8.8"]
   nameservershash = {}
   purge = true
 
@@ -20,9 +20,8 @@
   def destroy(nameservers)
     nameservershash = buildhash
     updatehash = removeservers(nameservers, nameservershash)
-    if updatehash.empty?
+    if updatehash.eql? 0
       puts 'return 0'
-      resetaddresses updatehash
     else
       puts updatehash
       updatedns updatehash
@@ -88,47 +87,42 @@
     nameservers.each do |nameserver|
       nameservershash.each do |key, value|
         nameserversarray = ("#{value}").split(",").map { |a| a }
-        puts nameserver
-        puts nameserversarray.inspect
         if nameserversarray.include? nameserver
           if updatehash.has_key?(:"#{key}")
-            puts 'updates has key'
-            puts updatehash[:"#{key}"].inspect
-            if (updatehash[:"#{key}"]).includes? ","
+            if (updatehash[:"#{key}"]).include? ','
               updateserversarray = (updatehash[:"#{key}"]).split(",").map { |a| a }
             else
               updateserversarray = updatehash[:"#{key}"]
             end
-            puts updateserversarray.inspect
             updateserversarray.delete("#{nameserver}")
-            puts updateserversarray.inspect
             updatehash[:"#{key}"] = updateserversarray
           else
-            puts 'updates doesnt have key'
             updateserversarray = nameserversarray
-            puts updateserversarray.inspect
             updateserversarray.delete("#{nameserver}")
-            puts updateserversarray.inspect
             updatehash[:"#{key}"] = updateserversarray
           end
         end
       end
     end
     puts updatehash
-    updatehash
-  end
-
-  def resetaddresses(updatehash)
-    updatehash.each do |key, value|
-      cmd = `powershell.exe Set-DNSClientServerAddress -InterfaceAlias "#{key} -ResetServerAddresses"`
+    puts nameservershash
+    if updatehash.empty?
+      return 0
+    else
+      puts 'im changing stuff'
+      puts updatehash
     end
+    updatehash
   end
 
   def updatedns(updatehash)
     updatehash.each do |key, value|
-      puts key
-      puts value
-      `powershell.exe "Set-DNSClientServerAddress -InterfaceAlias #{key} -ServerAddress #{value}"`
+      if value.empty?
+        `powershell.exe "Set-DNSClientServerAddress -InterfaceAlias #{key} -ResetServerAddresses"`
+      else
+        value = "#{value.join(',')}"
+        `powershell.exe Set-DNSClientServerAddress -InterfaceAlias #{key} -ServerAddresses #{value}`
+      end
     end
   end
 
